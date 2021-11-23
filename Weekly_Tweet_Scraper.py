@@ -16,7 +16,7 @@ driver=Edge(options=options)
 driver.get('https://www.twitter.com/login')
 #Allow login page time to load. Enter the username and press enter
 sleep(10)
-username = driver.find_element_by_xpath('//input[@name="username"]')
+username = driver.find_element_by_xpath('//input[@autocomplete="username"]')
 username.send_keys('candyphysics@yahoo.com')
 username.send_keys(Keys.RETURN)
 #Allow page time to load. Input twitter password using getpass
@@ -42,89 +42,97 @@ for item in csvreader:
 
 print(name_rows)
 
-end_date = datetime.today() - timedelta(days=7)
+end_date = datetime.today() - timedelta(days=2)
 year = str(end_date.year)
 month = str(end_date.month)
 day = str(end_date.day)
-stop_date = year+"-"+month+"-"+day
+stop_date =year+"-"+month+"-"+day
 
-tweet_time = ""
+print(stop_date)
+
 
 for row in name_rows:
-    while tweet_time!=stop_date:
-        search_input = driver.find_element_by_xpath('//input[@aria-label="Search query"]')
-        actionChains = ActionChains(driver)
-        actionChains.double_click(search_input).perform()
-        actionChains.double_click(search_input).perform()
-        search_input.send_keys(row)
-        search_input.send_keys(Keys.RETURN)
-        sleep(3)
+    print("scraping "+(row[0]))
+    tweet_time = ""
+    search_input = driver.find_element_by_xpath('//input[@aria-label="Search query"]')
+    actionChains = ActionChains(driver)
+    actionChains.double_click(search_input).perform()
+    actionChains.double_click(search_input).perform()
+    search_input.send_keys(row)
+    search_input.send_keys(Keys.RETURN)
+    sleep(3)
 
-        driver.find_element_by_link_text('Latest').click()
+    driver.find_element_by_link_text('Latest').click()
 
-        #Define function for extracting tweet data
-        def get_tweet_data(card):
-            "This is a function that extracts the data from a single tweet"
-            #Find the the username using xpath and return the text associated with it
-            username = card.find_element_by_xpath('.//span').text
-            #Get the date when the tweet was posted
-            user_handle = card.find_element_by_xpath('.//span[contains(text(),"@")]').text
-            try:
-                postdate = card.find_element_by_xpath('.//time').get_attribute('datetime')
-            except NoSuchElementException:
-                return
-            #Tweet text if dealing with original tweet
-            replying_to = card.find_element_by_xpath('.//div/div/div/div[2]/div[2]/div[2]/div[1]/div').text
-            tweet_txt = card.find_element_by_xpath('.//div/div/div/div[2]/div[2]/div[2]/div[2]').text
-            full_tweet = replying_to+tweet_txt
-            #Replies, RTs, and Likes
-            replies = card.find_element_by_xpath('.//div[@data-testid="reply"]').text
-            retweets = card.find_element_by_xpath('.//div[@data-testid="retweet"]').text
-            likes = card.find_element_by_xpath('.//div[@data-testid="like"]').text
-            tweet_data = [username, user_handle, postdate, replies, retweets, likes, full_tweet]
-            return tweet_data
-
-        #Save all tweets that have been loaded to the page
-
-        tweet_data = []
-        tweet_ids = set()
-        last_position = driver.execute_script("return window.pageYOffset;")
-
-        scrolling = True
-
-        while scrolling:
-            cards = driver.find_elements_by_xpath('//article[@data-testid="tweet"]')
-            for card in cards[-15:]:
-                tweet = get_tweet_data(card)
-                if tweet:
-                    tweet_id = ''.join(tweet)
-                    if tweet_id not in tweet_ids:
-                        tweet_ids.add(tweet_id)
-                        tweet_data.append(tweet)
-                        with open('crypto_tweets_Nov(16-22).csv', 'a', newline='') as f:
-                            header = ['Username', 'Handle', 'Timestamp', 'Comments', 'Likes', 'Retweets','Text']
-                            writer = csv.writer(f)
-                            print(tweet)
-                            writer.writerow(header)
-                            writer.writerows(tweet)
-
-            scroll_attempt = 0
-            while True:
-                #check scroll position
-                driver.execute_script('window.scrollTo(0, document.body.scrollHeight);')#scroll down the full page
-                sleep(3) #pause the program for three seconds to allow time to load
-                current_position = driver.execute_script("return window.pageYOffset;")
-                if last_position == current_position:
-                    scroll_attempt +=1
-
-                    #end of scroll region
-                    if scroll_attempt>=3:
-                        scrolling = False
-                        break
-                    else:
-                        sleep(2)
-                else:
-                    last_position = current_position
-                    break
-
+    #Define function for extracting tweet data
+    def get_tweet_data(card):
+        "This is a function that extracts the data from a single tweet"
+        #Find the the username using xpath and return the text associated with it
+        username = card.find_element_by_xpath('.//span').text
+        #Get the date when the tweet was posted
+        user_handle = card.find_element_by_xpath('.//span[contains(text(),"@")]').text
+        try:
+            postdate = card.find_element_by_xpath('.//time').get_attribute('datetime')
+        except NoSuchElementException:
+            return
+        #Tweet text if dealing with original tweet
+        replying_to = card.find_element_by_xpath('.//div/div/div/div[2]/div[2]/div[2]/div[1]/div').text
+        tweet_txt = card.find_element_by_xpath('.//div/div/div/div[2]/div[2]/div[2]/div[2]').text
+        full_tweet = replying_to+tweet_txt
+        #Replies, RTs, and Likes
+        replies = card.find_element_by_xpath('.//div[@data-testid="reply"]').text
+        retweets = card.find_element_by_xpath('.//div[@data-testid="retweet"]').text
+        likes = card.find_element_by_xpath('.//div[@data-testid="like"]').text
+        tweet_data = [row[0],username, user_handle, postdate, replies, retweets, likes, full_tweet]
+        return tweet_data
         
+
+    #Save all tweets that have been loaded to the page
+
+    tweet_data = []
+    tweet_ids = set()
+    last_position = driver.execute_script("return window.pageYOffset;")
+
+    #scrolling = True
+
+    while not (tweet_time == stop_date):
+        cards = driver.find_elements_by_xpath('//article[@data-testid="tweet"]')
+        for card in cards[-15:]:
+            tweet = get_tweet_data(card)
+            if tweet_time == stop_date:
+                break
+            if tweet:
+                tweet_id = ''.join(tweet)
+                if tweet_id not in tweet_ids:
+                    tweet_ids.add(tweet_id)
+                    tweet_data.append(tweet)
+                    t_stamp = tweet[3]
+                    tweet_time=t_stamp[0:10]
+                    #print(tweet_time)
+                    with open('crypto_tweets_Nov 22-23.csv', 'a', newline='', encoding= 'utf-8') as f:
+                        writer = csv.writer(f)
+                        #print(tweet)
+                        writer.writerows([tweet])
+        driver.execute_script('window.scrollTo(0, document.body.scrollHeight);')#scroll down the full page
+        sleep(3) #pause the program for three seconds to allow time to load
+
+        # scroll_attempt = 0
+        # while True:
+        #     #check scroll position
+        #     driver.execute_script('window.scrollTo(0, document.body.scrollHeight);')#scroll down the full page
+        #     sleep(3) #pause the program for three seconds to allow time to load
+        #     current_position = driver.execute_script("return window.pageYOffset;")
+        #     if last_position == current_position:
+        #         scroll_attempt +=1
+
+        #         #end of scroll region
+        #         if scroll_attempt>=3:
+        #             scrolling = False
+        #             break
+        #         else:
+        #             sleep(2)
+        #     else:
+        #         last_position = current_position
+        #         break
+
+    
